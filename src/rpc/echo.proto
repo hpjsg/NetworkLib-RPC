@@ -1,0 +1,16 @@
+package echo;
+option cc_generic_services = true;// 没有这句话不会生成service 和service_stub类
+
+message EchoRequest {
+  required string payload = 1;
+};
+
+message EchoResponse {
+  required string payload = 2;
+};
+
+service EchoService {
+  rpc Echo (EchoRequest) returns (EchoResponse);
+};
+
+
