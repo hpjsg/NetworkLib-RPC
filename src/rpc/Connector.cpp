@@ -17,6 +17,7 @@ Connector::Connector(Eventloop* loop,std::string ip,uint16_t port)
 
 RpcChannelptr Connector::get()
 {
+    MutexLockGuard lock(mutex_);
     //printf("in connector get\n");
     while(set_ == false)
     {
@@ -26,6 +27,7 @@ RpcChannelptr Connector::get()
 }
 void Connector::set(const TcpconnectionPtr& conn)
 {
+    MutexLockGuard lock(mutex_);
     //printf("in connector set\n");
     if(conn->connected())
     {
@@ -40,6 +42,7 @@ void Connector::set(const TcpconnectionPtr& conn)
 }
 bool Connector::isdead()
 {
+    MutexLockGuard lock(mutex_);
     if(set_ == true && !channel_->isconnected())
         return true;
     else 
@@ -47,6 +50,7 @@ bool Connector::isdead()
 }
 void Connector::retry()
 {
+    MutexLockGuard lock(mutex_);
     set_ = false;
     client_.start();
 }
