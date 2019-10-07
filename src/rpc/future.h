@@ -1,5 +1,5 @@
-#ifndef FUTURE_H
-#define FUTURE_H
+#ifndef RPC_FUTURE_H
+#define RPC_FUTURE_H
 
 #include"base/Condition.h"
 #include"base/Mutex.h"
@@ -13,7 +13,8 @@ class future
         {}
 
         RESPONSE& get()
-        { 
+        {
+            MutexLockGuard lock(mutex_);
             while(!put_)
             {
                 cond_.wait();
@@ -24,6 +25,7 @@ class future
 
         void push(RESPONSE& res)
         {
+            MutexLockGuard lock(mutex_);
             response_ = res;
             put_ = true;
             printf("push in:");
@@ -36,8 +38,9 @@ class future
             printf("%s\n",get()->payload().c_str());
         }
         
-        RESPONSE response_;
-    private:   
+
+    private:
+        RESPONSE response_;   
         volatile bool put_;
         mutable MutexLock mutex_;
         Condition cond_;
