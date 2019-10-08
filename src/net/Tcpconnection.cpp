@@ -27,7 +27,7 @@ Tcpconnection::~Tcpconnection()
 {
 }
 
-void Tcpconnection::send(std::string& message)
+void Tcpconnection::send(std::string message)
 {
     if(state_ == Connected)
     {
@@ -60,7 +60,7 @@ void Tcpconnection::sendinloop(std::string &message)//FIXME:: 没有用const为�
     if(!message.empty())
     {
         outbuffer_ += message;
-        message.clear();// FIXME
+        //message.clear();// FIXME
         channel_->enablewriting();
         loop_->updatechannel(channel_);
     }
@@ -123,7 +123,7 @@ void Tcpconnection::handleread()
     }
     else if(read_num > 0)
     {
-        messagecallback_(shared_from_this(),inbuffer_);
+        messagecallback_(shared_from_this(),inbuffer_);//messagecallback拿到信息后要清空输入缓冲区
     }
     
     if(zero)

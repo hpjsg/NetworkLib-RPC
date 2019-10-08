@@ -31,6 +31,7 @@ void onMessage(const TcpconnectionPtr& conn,std::string& buf)
          conn->name().c_str());
   printf("%s\n",buf.c_str());
          conn->send(message);
+         buf.clear();
          //conn->forcecloseinloop();
 }
 

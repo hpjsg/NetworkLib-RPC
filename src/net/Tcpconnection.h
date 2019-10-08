@@ -27,7 +27,7 @@ class Tcpconnection: boost::noncopyable,
 
         Eventloop* getloop() const{return loop_;}
         bool connected()const {return state_ == Connected;}
-        void send(std::string& message);
+        void send(std::string message);
         std::string name(){return name_;}
 
         void setConnectioncallback(const Connectioncallback& cb)
