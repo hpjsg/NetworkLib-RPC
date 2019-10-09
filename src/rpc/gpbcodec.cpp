@@ -59,7 +59,7 @@ void gpbcodec::onmessage(const TcpconnectionPtr& conn, std::string& buf)
             if(err == noerror)
             {
                 messagecallback_(conn,message);
-                buf = buf.substr(headlen+len); //FIXME
+                buf = buf.substr(headlen+len); //FIXME 清掉已读信息
             }
             else
             {
