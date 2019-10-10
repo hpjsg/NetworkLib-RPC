@@ -1,4 +1,4 @@
-## net
+# net
 net中比较关键的几个类的设计如下：
 
 ### channel
@@ -21,6 +21,7 @@ reactor的主循环
 * eventfd用于异步唤醒loop(只关心EPOLLIN事件) 
 * timerqueue(set)用于管理定时器 
 * pendingfunctors_是任务队列
+* epoll用于实现NIO，这里调用epoll的增删查接口函数一定要在loop线程中。
 * loop函数不可跨线程使用(assert断言检查当前是否在对象构造的线程中)。在while循环中先调用epoll获取activechannel,然后handleevent执行相应回调函数，接着执行pendingfunctors_中由其他线程送入的任务。
 * runinloop函数，将任务functor在loop构造的线程中执行。如果当前线程不是loop线程，functor放入pendingfunctors_中，并往eventfd中写入数据，唤醒阻塞在epoll上的loop线程。
 * 通过timerqueue_的add和concel接口来实现定时任务的添加和取消
@@ -42,15 +43,17 @@ reactor的主循环
 * inbuffer和outbuffer作为输入输出缓冲区，因为Tcp连接的缓冲区是有限的，防止信息较长导致读写阻塞用缓冲区来缓存。
 * handleread,handlewrite,handleclose分别注册到channel对应的callback中。由于使用epoll边沿触发，要一直读写到EAGIN错误才可返回。read返回0，说明对端主动close（见Uitl的readn和writen）。handleread根据读的结果调用messagecallback或handleerror或在readn读到0后调用handleclose。
 * send调用sendinloop来保证多线程下调用send输出缓冲区安全。如果输出缓冲区为空就尝试直接写fd，如果信息没有发送完就缓存到输出缓冲区的尾部，在channel的events中加入EPOLLOUT
+* connectEstablishe函数将Tcpconnection对应channel注册到epoll上，关心events设置为读EPOLLIN,并调用connectioncallback
 * handleclose 将channel的events设为0(掩码为0表示不关心读写)，调用closecallback在对象析构前将存在server的connectionmap中的Tcpconnectionptr对象删掉。closecallback绑定server的removeconnection。
 * connectiondestroyed是connection析构前最后调用的一个函数，在closecallback中被调用，将channel从epoll中去掉，将对应fd关闭。
 
 
 ### Server
-* 一个主loop,accept请求。主loop上添加acceptchannel用于监听某个端口
+* 一个主loop用来accept请求。主loop的epoll上添加acceptchannel用于监听某个端口
 * 一个Eventloopthreadpool 
 * acceptchannel的readcallback为Server::newconnection。当acceptchannel可读时(EPOLLET要一直读到accept返回错误),从线程池中取一个loop和accept_fd一起构造成Tcpconnecionptr,绑定对应回调函数。
 * connectionmap持有Tcpconnectionptr，key为每个Tcpconnection的name
+* connectioncallback_和messagecallback_绑定到Tcpconnection对应的回调函数。
 
 ### Timer && Timestamp
 Timer是对定时任务的封装，主要成员有：
@@ -65,5 +68,10 @@ Timestamp用int64标记时间，精确到微秒 用gettimeofday获取当前时�
 * handleread获取当前时间戳，读Timerfd，调用getexpired获得当前超时的Timer的列表，并将他们从Timers中删除。然后分别调用Timer对应的回调函数。最后调用reset函数检查超时列表中的Timer是否有repeat重复标志，如果有重新插入到Timers中，并用Timers中最早到时的时间戳更新timerfd。
 * 这里有个问题是，timer在chenshuo老师那里使用的是裸指针，在他的书里写了可以使用unique_ptr来管理。问题是unque_ptr不允许使用等号赋值。在使用STL的容器时复制时需要使用移动语义。可以使用make_move_iterator来底层调用std::move()(生成一个不具名的右值引用来调用移动构造函数或移动赋值函数)。这里有个问题是，由于我使用了set，set返回的是const_iterator表示它指向对象是const不可修改的，而vector对象是非const的。在getexpired函数中，需要将set的一部分放入vector(数据是pair<int,unique_ptr>)。如果数据不是unique_ptr的话可以vector.insert(vector.iteratorpos,set.begin(),set.end())，insert会把const对象转为非const来放入vector（具体怎么做的？）但考虑unique_ptr这里使用了make_move_iterator底层就会变成 pair = std::move(const pair) 就无法调用移动构造函数，而是调用pair（cosnt pair&） 这个delete function。const pair = move(const pair) 或pair = move(pair);都可以调用移动语义。最后我使用了shared_ptr，代价可能高了一些，也可以不用set改用muiltimap，因为map只有key是const的，value是非const不会有上述问题。
 
-
+### client
+持有一个loop用于发起对server的连接。
+* start函数将connect函数放入loop的pendingfunctors任务队列然后返回。（防止阻塞）
+* connect 新建一个connectfd，设置相关参数，调用linux的connect对server发起连接。由connectfd和loop构造connectchannel,将关心的events设置为EPOLLOUT，将connectchannel加入到loop对应的epoll上，可写的回调函数绑定为client::connectserver。
+* connectserver 当connectfd可写，说明server已accept了client的connect请求，此时将connectchannel从loop的epoll上去掉，把已经连接成功的connectfd送入newconnection函数。
+* newconnection函数用connectfd构造Tcpconnectionptr，设置这个Tcpconnection的对应messagecallback和connectcallback，最后调用connectEstablished函数完成连接。(对服务器的消息的发送任务可以写到connectcallback函数中,由connectEstablished调用)。
 
