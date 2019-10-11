@@ -99,7 +99,7 @@ redis的hiredis客户端连接成功后返回redisContext/redisAsyncContext对�
 * inquiryandrefresh 向redis发送ZRANGE service 0 -1 命令获取service的所有host存放在一个局部set和一个vector里。vector用于返回查询结果，局部的set调用swap函数与cache[service]交换，更新cache同时自动释放旧的对象。
 * discovery 是rpcclient根据Service查询可用hostlist的接口。先在本地cache中查询service，如果找不到对应项，就说明还没有subscribe这个service，先subscribe该service，然后调用inquiryandrefresh刷新缓存并返回结果。如果找到了，且可用hostlist不为空则直接返回，如果为空调用inquiryandrefresh接口。
 
-###　monitor
+### monitor
 monitor是运行在注册中心上的，用于管理超时为注册的host。调用redis的SCAN来遍历所有的key值，然后按照score的范围调整member。每一次调用SCAN cursor都会返回两个element，第一个是一个string为下一次scan的cursor，第二个是本次搜索到的key的列表。最初cursor为0，要一直检索到cursor再次为0为止(这一次返回的key列表也要处理)
 * clean 调用SCAN获取key值，然后调用zremrangebyscore来处理key中超时的host
 * zremrangebyscore 调用ZREMRANGEBYSCORE去掉Service的hostlist中注册时间在range中的host。这个range为 [-inf,Timestamp::now-validate_period) validate_period是注册的有效时长。redis返回去掉的member个数，如果不为0，PUBLISH所有subscribe了Service的客户端"refresh"，让它们刷新cache。
