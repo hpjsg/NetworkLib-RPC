@@ -14,13 +14,13 @@
 * OS: Ubuntu 18.04
 * Complier: g++ 7.4.0
 
-
 ## 第三方依赖
-简易RPC框架使用google protobuf序列化和反序列化，使用zlib的Adler-32计算校验。依赖Redis作为注册中心，hiredis作为Redis客户端。使用OpenSSL计算MD5生成Hash值。
-* google protobuf
-* zlib
-* hiredis
-* openssl
+| 名称        | 作用         | 
+| ------------- |:-------------:| 
+| [google protobuf](https://developers.google.cn/protocol-buffers/)    |序列化反序列化 | 
+|  [zlib](http://www.zlib.net/)  | 奇偶校验      |  
+|  [hiredis](https://github.com/redis/hiredis)   | Redis注册中心客户端    |   
+|  [openssl](https://www.openssl.org/)   | MD5计算Hash值    |   
 
 
 ## 技术要点
